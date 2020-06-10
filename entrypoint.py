@@ -53,7 +53,7 @@ assert (
     os.environ["GITHUB_EVENT_NAME"] == "pull_request"
 ), "This action runs only on pull request events."
 github_token = os.environ["GITHUB_TOKEN"]
-debug = False
+debug = os.getenv("TY_DEBUG", False)
 
 with open(os.environ["GITHUB_EVENT_PATH"]) as f:
     event_data = json.load(f)
@@ -61,7 +61,7 @@ with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         print("Event data:")
         print(json.dumps(event_data, indent=4))
 
-repo_path = "."  # TODO: Is this always true?
+repo_path = os.getenv("TY_REPO_PATH", "/usr/src") #"."  # TODO: Is this always true?
 
 if debug:
     print("ENV Variables")
@@ -71,9 +71,10 @@ if debug:
 diff_rq = requests.get(
     event_data["pull_request"]["url"],
     headers={
-        "authorization": f"Bearer {github_token}",
+        #"authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github.v3.diff",
     },
+    auth=(os.environ["GITHUB_USER"], github_token),
 )
 print("Diff GET Status Code: ", diff_rq.status_code)
 
@@ -164,7 +165,7 @@ with TemporaryDirectory() as out_dir:
     for suggestion in type_suggestions:
         if suggestion.symbol_kind == "class-or-function":
             suggestion.annotation_lineno = find_annotation_line(
-                suggestion.filepath[1:], suggestion.file_location, suggestion.name
+                os.path.join(repo_path, suggestion.filepath[1:]), suggestion.file_location, suggestion.name
             )
         else:  # when the underlying symbol is a parameter
             suggestion.annotation_lineno = suggestion.file_location[0]
@@ -188,11 +189,12 @@ with TemporaryDirectory() as out_dir:
             for s in suggestions
         )
 
+    dry_run = os.environ["TY_DRY_RUN"]
     for same_line_suggestions in grouped_suggestions:
         suggestion = same_line_suggestions[0]
         path = suggestion.filepath[1:]  # No slash in the beginning
         annotation_lineno = suggestion.annotation_lineno
-        with open(path) as file:
+        with open(os.path.join(repo_path, path)) as file:
             target_line = file.readlines()[annotation_lineno - 1]
         data = {
             "path": path,
@@ -210,7 +212,12 @@ with TemporaryDirectory() as out_dir:
             "authorization": f"Bearer {github_token}",
             "Accept": "application/vnd.github.v3.raw+json",
         }
-        r = requests.post(comment_url, data=json.dumps(data), headers=headers)
+
+        if dry_run:
+            print("Skip posting actual comment to Github")
+        else:
+            r = requests.post(comment_url, data=json.dumps(data), headers=headers)
+
         if debug:
             print("URL: ", comment_url)
-            print(f"Data: {data}. Status Code: {r.status_code}. Text: {r.text}")
+            print(f"Data: {data}" + (f" Status Code: {r.status_code}. Text: {r.text}" if not dry_run else ""))

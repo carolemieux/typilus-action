@@ -27,6 +27,35 @@ suggestions with only a partial context, at the cost of suggesting some false
 positives.
 
 
+### Run locally from CLI
+
+```
+git clone <your-python-repo> test-repo
+cat <<EOF >pr.json
+{
+    "action": "opened",
+    "pull_request": {
+      "url": "https://api.github.com/repos/<your-python-repo>/pulls/1",
+      "review_comments_url": "https://api.github.com/repos/<your-python-repo>/pulls/1/comments",
+      "head": {
+        "sha": "ec26c3e57ca3a959ca5aad62de7213c562f8c821"
+      }
+    }
+}
+EOF
+
+docker build -t typilus:v0.9-cli-auth-rename .
+docker run -it \
+    -v "$PWD":/data \
+    -e TY_DRY_RUN="1" \
+    -e TY_REPO_PATH=/data/test-repo \
+    -e GITHUB_USER="<your-github-username>" \
+    -e GITHUB_TOKEN="<your-personal-access-token>" \
+    -e GITHUB_EVENT_NAME=pull_request \
+    -e GITHUB_EVENT_PATH=/data/pr.json \
+    typilus:v0.9-cli-auth-rename .
+```
+
 ### Install Action in your Repository
 
 To use the GitHub action, create a workflow file. For example,
