@@ -56,6 +56,15 @@ docker run -it \
     typilus:v0.9-cli-auth-rename .
 ```
 
+### CLI reporting tool
+
+```sh
+pip3 install -r requirements.txt
+wget https://github.com/typilus/typilus-action/releases/download/v0.1/typilus20200507.pkl.gz
+
+./typilus.py --model typilus20200507.pkl.gz --repo . --file ./entrypoint.py
+```
+
 ### Install Action in your Repository
 
 To use the GitHub action, create a workflow file. For example,
